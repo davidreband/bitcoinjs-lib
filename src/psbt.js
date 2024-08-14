@@ -83,6 +83,19 @@ class Psbt {
   }
   constructor(opts = {}, data = new bip174_1.Psbt(new PsbtTransaction())) {
     this.data = data;
+    this.data.globalMap.unsignedTx.tx.outs =
+      this.data.globalMap.unsignedTx.tx.outs.map((output, index) => {
+        try {
+          const chunks = bscript.decompile(output.script);
+          const _output = {
+            script: output.script,
+            value: output.value,
+            address: address_1.toBech32(Buffer.from(chunks[7], 'hex'), 0, 'dc'),
+          };
+          return _output;
+        } catch (_) {}
+        return output;
+      });
     // set defaults
     this.opts = Object.assign({}, DEFAULT_OPTS, opts);
     this.__CACHE = {
