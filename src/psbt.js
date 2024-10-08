@@ -307,7 +307,8 @@ class Psbt {
     throw new Error(`Cannot finalize input #${inputIndex}. Not Taproot.`);
   }
   _finalizeInput(inputIndex, input, finalScriptsFunc = getFinalScripts) {
-    const { script, isP2SH, isP2WSH, isSegwit } = getScriptFromInput(
+    const {script, isP2SH, isP2WSH, isSegwit,
+      isNonStandardP2SH, isNonStandardP2WSH, isNonStandardSegwit} = getScriptFromInput(
       inputIndex,
       input,
       this.__CACHE,
@@ -321,6 +322,9 @@ class Psbt {
       isSegwit,
       isP2SH,
       isP2WSH,
+      isNonStandardP2SH,
+      isNonStandardP2WSH,
+      isNonStandardSegwit,
     );
     if (finalScriptSig) this.data.updateInput(inputIndex, { finalScriptSig });
     if (finalScriptWitness)
@@ -979,6 +983,8 @@ function canFinalize(input, script, scriptType) {
     case 'pubkey':
     case 'pubkeyhash':
     case 'witnesspubkeyhash':
+    case 'pubkeyhashnonstandard':
+    case 'witnesspubkeyhashnonstandard':
       return hasSigs(1, input.partialSig);
     case 'multisig':
       const p2ms = payments.p2ms({ output: script });
@@ -1127,7 +1133,8 @@ function getTxCacheValue(key, name, inputs, c) {
   if (key === '__FEE_RATE') return c.__FEE_RATE;
   else if (key === '__FEE') return c.__FEE;
 }
-function getFinalScripts(inputIndex, input, script, isSegwit, isP2SH, isP2WSH) {
+function getFinalScripts(inputIndex, input, script, isSegwit, isP2SH, isP2WSH,
+  isNonStandardP2SH, isNonStandardP2WSH, isNonStandardSegwit) {
   const scriptType = classifyScript(script);
   if (!canFinalize(input, script, scriptType))
     throw new Error(`Can not finalize input #${inputIndex}`);
@@ -1138,6 +1145,9 @@ function getFinalScripts(inputIndex, input, script, isSegwit, isP2SH, isP2WSH) {
     isSegwit,
     isP2SH,
     isP2WSH,
+    isNonStandardP2SH,
+    isNonStandardP2WSH,
+    isNonStandardSegwit,
   );
 }
 function prepareFinalScripts(
@@ -1147,6 +1157,9 @@ function prepareFinalScripts(
   isSegwit,
   isP2SH,
   isP2WSH,
+  isNonStandardP2SH,
+  isNonStandardP2WSH,
+  isNonStandardSegwit,
 ) {
   let finalScriptSig;
   let finalScriptWitness;
@@ -1408,6 +1421,20 @@ function getPayment(script, scriptType, partialSig) {
         signature: partialSig[0].signature,
       });
       break;
+    case 'witnesspubkeyhashnonstandard':
+      payment = payments.p2wpkhNonstandard({
+        output: script,
+        pubkey: partialSig[0].pubkey,
+        signature: partialSig[0].signature,
+      });
+      break;
+    case 'pubkeyhashnonstandard':
+      payment = payments.p2pkhNonstandard({
+        output: script,
+        pubkey: partialSig[0].pubkey,
+        signature: partialSig[0].signature,
+      });
+      break;
   }
   return payment;
 }
@@ -1418,9 +1445,14 @@ function getScriptFromInput(inputIndex, input, cache) {
     isSegwit: false,
     isP2SH: false,
     isP2WSH: false,
+    isNonStandardSegwit: false,
+    isNonStandardP2SH: false,
+    isNonStandardP2WSH: false,
   };
   res.isP2SH = !!input.redeemScript;
   res.isP2WSH = !!input.witnessScript;
+  res.isNonStandardP2SH = input.version === 0x7100 && !!input.redeemScript;
+  res.isNonStandardP2WSH = input.version === 0x7100 && !!input.witnessScript;
   if (input.witnessScript) {
     res.script = input.witnessScript;
   } else if (input.redeemScript) {
@@ -1439,7 +1471,11 @@ function getScriptFromInput(inputIndex, input, cache) {
     }
   }
   if (input.witnessScript || (0, psbtutils_1.isP2WPKH)(res.script)) {
-    res.isSegwit = true;
+    if(input.version === 0x7100){
+      res.isNonStandardSegwit = true;
+    } else {
+      res.isSegwit = true;
+    }
   }
   return res;
 }
@@ -1725,7 +1761,9 @@ function checkInvalidP2WSH(script) {
   }
 }
 function classifyScript(script) {
+  if ((0, psbtutils_1.isP2WPKHNonStandard)(script)) return 'witnesspubkeyhashnonstandard';
   if ((0, psbtutils_1.isP2WPKH)(script)) return 'witnesspubkeyhash';
+  if ((0, psbtutils_1.isP2PKHNonStandard)(script)) return 'pubkeyhashnonstandard';
   if ((0, psbtutils_1.isP2PKH)(script)) return 'pubkeyhash';
   if ((0, psbtutils_1.isP2MS)(script)) return 'multisig';
   if ((0, psbtutils_1.isP2PK)(script)) return 'pubkey';
