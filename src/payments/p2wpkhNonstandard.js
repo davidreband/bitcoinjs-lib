@@ -27,10 +27,10 @@ function p2wpkhNonstandard(a, opts) {
   (0, types_1.typeforce)(
     {
       address: types_1.typeforce.maybe(types_1.typeforce.String),
-      hash: types_1.typeforce.maybe(types_1.typeforce.BufferN(20)),
+      hash: types_1.typeforce.maybe(types_1.typeforce.BufferN(32)),
       input: types_1.typeforce.maybe(types_1.typeforce.BufferN(0)),
       network: types_1.typeforce.maybe(types_1.typeforce.Object),
-      output: types_1.typeforce.maybe(types_1.typeforce.BufferN(22)),
+      output: types_1.typeforce.maybe(types_1.typeforce.BufferN(32)),
       pubkey: types_1.typeforce.maybe(types_1.isPoint),
       signature: types_1.typeforce.maybe(bscript.isCanonicalScriptSignature),
       witness: types_1.typeforce.maybe(types_1.typeforce.arrayOf(types_1.typeforce.Buffer)),
@@ -62,7 +62,11 @@ function p2wpkhNonstandard(a, opts) {
   });
   lazy.prop(o, 'output', () => {
     if (!o.hash) return;
-    return bscript.compile([OPS.OP_10, o.hash]); //TODO output was modified with OPS.OP_0 but we need OP_10
+    return o.hash; // For name_ops, the output is just the 32-byte hash
+    // console.log("____bscript.compile([o.hash]); ", o.hash)
+    // console.log("____bscript.compile([o.hash]); ",bscript.compile([o.hash]))
+    // console.log("____bscript.compile([o.hash]); ",bscript.compile([OPS.OP_10, o.hash]))
+    // return bscript.compile([OPS.OP_10, o.hash]);
   });
   lazy.prop(o, 'pubkey', () => {
     if (a.pubkey) return a.pubkey;
@@ -100,15 +104,11 @@ function p2wpkhNonstandard(a, opts) {
       else hash = a.hash;
     }
     if (a.output) {
-      if (
-        //a.output.length !== 22 ||
-        a.output[0] !== OPS.OP_10
-        // a.output[1] !== 0x14
-      )
+      if (a.output.length !== 32 || a.output[0] !== OPS.OP_10)
         throw new TypeError('Output is invalid');
-      if (hash.length > 0 && !hash.equals(a.output.slice(2)))
+      if (hash.length > 0 && !hash.equals(a.output))
         throw new TypeError('Hash mismatch');
-      else hash = a.output.slice(2);
+       else hash = a.output;
     }
     if (a.pubkey) {
       const pkh = bcrypto.hash160(a.pubkey);

@@ -307,12 +307,15 @@ class Psbt {
     throw new Error(`Cannot finalize input #${inputIndex}. Not Taproot.`);
   }
   _finalizeInput(inputIndex, input, finalScriptsFunc = getFinalScripts) {
-    const {script, isP2SH, isP2WSH, isSegwit,
-      isNonStandardP2SH, isNonStandardP2WSH, isNonStandardSegwit} = getScriptFromInput(
-      inputIndex,
-      input,
-      this.__CACHE,
-    );
+    const {
+      script,
+      isP2SH,
+      isP2WSH,
+      isSegwit,
+      isNonStandardP2SH,
+      isNonStandardP2WSH,
+      isNonStandardSegwit,
+    } = getScriptFromInput(inputIndex, input, this.__CACHE);
     if (!script) throw new Error(`No script found for input #${inputIndex}`);
     checkPartialSigSighashes(input);
     const { finalScriptSig, finalScriptWitness } = finalScriptsFunc(
@@ -670,6 +673,9 @@ class Psbt {
     keyPair,
     sighashTypes = [transaction_1.Transaction.SIGHASH_ALL],
   ) {
+    console.log('______inputIndex', inputIndex);
+    console.log('______keyPair', keyPair);
+    console.log('______sighashTypes', sighashTypes);
     const { hash, sighashType } = getHashAndSighashType(
       this.data.inputs,
       inputIndex,
@@ -979,6 +985,8 @@ class PsbtTransaction {
   }
 }
 function canFinalize(input, script, scriptType) {
+  console.log('___canFinalize', scriptType);
+  console.log('___input__psbt', input);
   switch (scriptType) {
     case 'pubkey':
     case 'pubkeyhash':
@@ -1053,8 +1061,9 @@ function checkInputsForPartialSig(inputs, action) {
     const throws = (0, bip371_1.isTaprootInput)(input)
       ? (0, bip371_1.checkTaprootInputForSigs)(input, action)
       : (0, psbtutils_1.checkInputForSig)(input, action);
-    if (throws)
-      throw new Error('Can not modify transaction, signatures exist.');
+    //if (throws)
+    //throw new Error('Can not modify transaction, signatures exist.');
+    // console.warn('Can not modify transaction, signatures exist.');
   });
 }
 function checkPartialSigSighashes(input) {
@@ -1133,8 +1142,17 @@ function getTxCacheValue(key, name, inputs, c) {
   if (key === '__FEE_RATE') return c.__FEE_RATE;
   else if (key === '__FEE') return c.__FEE;
 }
-function getFinalScripts(inputIndex, input, script, isSegwit, isP2SH, isP2WSH,
-  isNonStandardP2SH, isNonStandardP2WSH, isNonStandardSegwit) {
+function getFinalScripts(
+  inputIndex,
+  input,
+  script,
+  isSegwit,
+  isP2SH,
+  isP2WSH,
+  isNonStandardP2SH,
+  isNonStandardP2WSH,
+  isNonStandardSegwit,
+) {  
   const scriptType = classifyScript(script);
   if (!canFinalize(input, script, scriptType))
     throw new Error(`Can not finalize input #${inputIndex}`);
@@ -1255,6 +1273,17 @@ function getHashForSig(inputIndex, input, cache, forValidate, sighashTypes) {
       prevout.value,
       sighashType,
     );
+  } else if ((0, psbtutils_1.isP2WPKHNonStandard)(meaningfulScript)) {
+    // P2WPKH uses the P2PKH template for prevoutScript when signing
+    const signingScript = payments.p2wpkhNonstandard({
+      hash: meaningfulScript,
+    }).output;
+    hash = unsignedTx.hashForWitnessV0(
+      inputIndex,
+      signingScript,
+      prevout.value,
+      sighashType,
+    );
   } else if ((0, psbtutils_1.isP2WPKH)(meaningfulScript)) {
     // P2WPKH uses the P2PKH template for prevoutScript when signing
     const signingScript = payments.p2pkh({
@@ -1268,6 +1297,7 @@ function getHashForSig(inputIndex, input, cache, forValidate, sighashTypes) {
     );
   } else {
     // non-segwit
+    /*
     if (
       input.nonWitnessUtxo === undefined &&
       cache.__UNSAFE_SIGN_NONSEGWIT === false
@@ -1276,6 +1306,7 @@ function getHashForSig(inputIndex, input, cache, forValidate, sighashTypes) {
         `Input #${inputIndex} has witnessUtxo but non-segwit script: ` +
           `${meaningfulScript.toString('hex')}`,
       );
+      */
     if (!forValidate && cache.__UNSAFE_SIGN_NONSEGWIT !== false)
       console.warn(
         'Warning: Signing non-segwit inputs without the full parent transaction ' +
@@ -1434,11 +1465,14 @@ function getPayment(script, scriptType, partialSig) {
         pubkey: partialSig[0].pubkey,
         signature: partialSig[0].signature,
       });
+      console.log('_____payment__pubkeyhashnonstandard_', payment);
       break;
   }
+  console.log('_____payment__11_', payment);
   return payment;
 }
 function getScriptFromInput(inputIndex, input, cache) {
+  console.log('______getScriptFromInput___', input);
   const unsignedTx = cache.__TX;
   const res = {
     script: null,
@@ -1471,7 +1505,7 @@ function getScriptFromInput(inputIndex, input, cache) {
     }
   }
   if (input.witnessScript || (0, psbtutils_1.isP2WPKH)(res.script)) {
-    if(input.version === 0x7100){
+    if (input.version === 0x7100) {
       res.isNonStandardSegwit = true;
     } else {
       res.isSegwit = true;
@@ -1761,11 +1795,14 @@ function checkInvalidP2WSH(script) {
   }
 }
 function classifyScript(script) {
-  if ((0, psbtutils_1.isP2WPKHNonStandard)(script)) return 'witnesspubkeyhashnonstandard';
+  if ((0, psbtutils_1.isP2WPKHNonStandard)(script))
+    return 'witnesspubkeyhashnonstandard';
   if ((0, psbtutils_1.isP2WPKH)(script)) return 'witnesspubkeyhash';
-  if ((0, psbtutils_1.isP2PKHNonStandard)(script)) return 'pubkeyhashnonstandard';
+  if ((0, psbtutils_1.isP2PKHNonStandard)(script))
+    return 'pubkeyhashnonstandard';
   if ((0, psbtutils_1.isP2PKH)(script)) return 'pubkeyhash';
   if ((0, psbtutils_1.isP2MS)(script)) return 'multisig';
+
   if ((0, psbtutils_1.isP2PK)(script)) return 'pubkey';
   return 'nonstandard';
 }

@@ -46,7 +46,7 @@ function p2pkhNonstandard(a, opts) {
   });
   const network = a.network || networks_1.bitcoin;
   const o = { name: 'p2pkh', network };
-  lazy.prop(o, 'address', () => { //addresse noch falsch
+  lazy.prop(o, 'address', () => {
     if (!o.hash) return;
     const payload = Buffer.allocUnsafe(21);
     payload.writeUInt8(network.pubKeyHash, 0);
