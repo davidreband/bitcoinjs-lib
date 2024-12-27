@@ -343,10 +343,11 @@ class Psbt {
     tapLeafHashToFinalize,
     finalScriptsFunc = bip371_1.tapScriptFinalizer,
   ) {
-    if (!input.witnessUtxo)
-      throw new Error(
-        `Cannot finalize input #${inputIndex}. Missing withness utxo.`,
-      );
+    //TODO
+    // if (!input.witnessUtxo)
+    //   throw new Error(
+    //     `Cannot finalize input #${inputIndex}. Missing withness utxo.`,
+    //   );
     // Check key spend first. Increased privacy and reduced block space.
     if (input.tapKeySig) {
       const payment = payments.p2tr({
