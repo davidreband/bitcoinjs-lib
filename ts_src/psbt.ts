@@ -448,10 +448,11 @@ export class Psbt {
     tapLeafHashToFinalize?: Buffer,
     finalScriptsFunc = tapScriptFinalizer,
   ): this {
-    if (!input.witnessUtxo)
-      throw new Error(
-        `Cannot finalize input #${inputIndex}. Missing withness utxo.`,
-      );
+    //TODO
+    // if (!input.witnessUtxo)
+    //   throw new Error(
+    //     `Cannot finalize input #${inputIndex}. Missing withness utxo.`,
+    //   );
 
     // Check key spend first. Increased privacy and reduced block space.
     if (input.tapKeySig) {
